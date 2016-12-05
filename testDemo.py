@@ -60,6 +60,7 @@ class ZhiHuClient(object):
         html = self.open(self.homeURL).text
         soup = BS(html, "html.parser")
         _xsrf = soup.find("input", {"name": "_xsrf"})["value"]
+        print("_xrsf is:" + _xsrf)
         # 下载验证码图片
         while True:
             captcha = self.open(self.captchaURL).content
@@ -82,9 +83,9 @@ class ZhiHuClient(object):
             res = self.__session.post(self.__loginURL, data=data)
             print("*" * 100)
             print(res.text) # 输出脚本信息，调试用
-            with open("test.html","w") as f:
+            with open("test.html","wb") as f:
                 f.write(res.text)
-            if res.json()['r'] == 0:
+            if res.json()["r"] == 0:
                 print("登录成功")
                 self.__saveCookie()
                 break
