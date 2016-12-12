@@ -91,22 +91,65 @@ def zhihuLogin():
     else:
         print("login failed!")
 
-def getFollowing(url):#the url should be usr homepage
-    followingUrl += soup.find("div", {"class": "Profile-followStatusWrap"}).find("a").attrs['href']
-    print(followingUrl)
-    soupFollowing = bs(zhihuOpen(followingUrl,headers).text,"html.parser")
-    # print(soupFollowing)
-    imgList = soupFollowing.findAll("img")
-    print(imgList)
-    for img in imgList:
-        if 'alt' in img.attrs:
-            print("haha")
-            print(img.attrs['src'])
-            imgFile = img.attrs['alt']
-            urlReq.urlretrieve(img.attrs['src'], '%s.jpg' % imgFile)
-    else:
-            print("eee")
-            print(img)
+def getFollowing(url,hearders,folder):#the url should be usr homepage
+    host = "https://www.zhihu.com/api/v4/members/"
+    referer = "https://www.zhihu.com/people/"
+    usrHomeUrl = host+url+"?include=locations,employments,gender,educations,business,voteup_count,thanked_Count,follower_count,following_count,cover_url,following_topic_count,following_question_count,following_favlists_count,following_columns_count,answer_count,articles_count,question_count,favorite_count,favorited_count,logs_count,marked_answers_count,marked_answers_text,message_thread_token,account_status,is_active,is_force_renamed,is_bind_sina,sina_weibo_url,sina_weibo_name,show_sina_weibo,is_blocking,is_blocked,is_following,is_followed,mutual_followees_count,vote_to_count,vote_from_count,thank_to_count,thank_from_count,thanked_count,description,hosted_live_count,participated_live_count,allow_message,industry_category,org_name,org_homepage,badge[?(type=best_answerer)].topics"
+    headers['Referer'] = referer+url
+    # print(headers)
+    # startUrl = host+url+"/followees?per_page = 10 & include = data % 5 \
+    # B % 2\
+    # A % 5\
+    # D.answer_count % 2\
+    # Carticles_count % 2\
+    # Cfollower_count % 2\
+    # Cis_followed % 2\
+    # Cis_following % 2\
+    # Cbadge % 5\
+    # B % 3\
+    # F % 28\
+    # type % 3\
+    # Dbest_answerer % 29 % 5\
+    # D.topics & limit = 10 &offser={0}"
+    startUrl = host + url + "/followees?offset={0}"
+    usrHomeJson = zhihuOpen(usrHomeUrl,headers).json()
+    followee_num = usrHomeJson['following_count']
+    if followee_num:
+        print(followee_num)
+    workFolder = folder+'%s.jpg'%usrHomeJson['name']
+    print(workFolder)
+    urlReq.urlretrieve(usrHomeJson['avatar_url'], workFolder)
+    headers['Referer'] = host+url+"/following"
+    offset = 0
+    nextUrl = startUrl.format(str(offset))
+    while offset < int(followee_num):
+        # nextUrl = startUrl.format(str(offset))
+        tmpResp = zhihuOpen(nextUrl,headers)
+        # print(tmpResp.json()['data'])
+        respList = tmpResp.json()['data']
+        for usrInfo in respList:
+            print("save %s pic" % usrInfo['name'])
+            urlReq.urlretrieve(usrInfo['avatar_url'], folder+"%s.jpg" % usrInfo['name'])
+            time.sleep(1)
+        offset += 10
+        nextUrl = tmpResp.json()['paging']['next']
+        print("nextGetUrl is:"+nextUrl)
+
+
+
+    # following = zhihuOpen(followingUrl,headers=headers)
+    # # print(soupFollowing)
+    # imgList = soupFollowing.findAll("img")
+    # print(imgList)
+    # for img in imgList:
+    #     if 'alt' in img.attrs:
+    #         print("haha")
+    #         print(img.attrs['src'])
+    #         imgFile = img.attrs['alt']
+    #         urlReq.urlretrieve(img.attrs['src'], '%s.jpg' % imgFile)
+    # else:
+    #         print("eee")
+    #         print(img)
 
 # headers2 = {
 #     'Connection': 'keep-alive',
@@ -143,8 +186,6 @@ if __name__ == '__main__':
 
     headers["Referer"] = "https://www.zhihu.com/?next=/people/coldnorth/following"
     following = zhihuOpen("https://www.zhihu.com/people/coldnorth/following",headers)
-    if following.cookies.get_dict():
-        print(following.cookies.get_dict())
 
 
     headers2 = headers
@@ -152,15 +193,40 @@ if __name__ == '__main__':
     headers2["authorization"] = "Bearer"+" "+cookie["z_c0"][1:-1]
     print(headers2["authorization"])
 
-    startUrl = "https://www.zhihu.com/api/v4/members/coldnorth/followees?offset=20"
-    tmpResp = zhihuOpen(startUrl,headers2)
-    print(tmpResp.json()["data"])
-    respList = tmpResp.json()["data"]
-    print(respList[0]['url_token'])
-    ppUrl = "https://www.zhihu.com/people/"+respList[0]['url_token']
-    print("next user:%s" %respList[0]['name'])
-    print(ppUrl)
-    ppResp = zhihuOpen(ppUrl,headers)
+    startUrl = "https://www.zhihu.com/api/v4/members/coldnorth/followees?offset={0}"
+    offset = 0
+    nextUrl = startUrl.format(str(offset))
+    usrList = dict()
+    while nextUrl:
+        tmpResp = zhihuOpen(nextUrl, headers2)
+        print(tmpResp.json()["data"])
+        respList = tmpResp.json()["data"]
+        for usrInfo in respList:
+            print("save %s pic" %usrInfo['name'])
+            urlReq.urlretrieve(usrInfo['avatar_url'],"picture\%s-%s.jpg" \
+                               %(usrInfo['name'],usrInfo['url_token']))
+            usrList[usrInfo['name']] = usrInfo['url_token']
+            try:
+                os.mkdir('picture\%s-%s' %(usrInfo['name'],usrInfo['url_token']))
+            except:
+                print("folder %s:%s is already exists!"%(usrInfo['name'],usrInfo['url_token']))
+            # try:
+            #     os.mkdir('picture\%s' %usrInfo['name'])
+            # except:
+            #     os.mkdir('picture\%s' % usrInfo['name']+"-s")
+        offset += 10
+        if offset > 28:
+            nextUrl = None
+        else:
+            nextUrl = startUrl.format(str(offset))
+        print("next is:",nextUrl)
+    print(usrList)
+    for usr in usrList.keys():
+        print("visit "+usr)
+        folder = "picture\\"+usr+"-"+usrList[usr]+"\\"
+        # print(folder)
+        getFollowing(usrList[usr],headers2,folder)
+
 
 
     # tmpH = session.get("https://www.zhihu.com/people/coldnorth/followees",headers=headers,verify=False)
